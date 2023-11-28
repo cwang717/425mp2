@@ -21,6 +21,8 @@
 #include "Member.h"
 #include "Message.h"
 #include "Queue.h"
+#include <iostream>
+#include <string>
 
 /**
  * CLASS NAME: MP2Node
@@ -33,6 +35,7 @@
  * 				4) Client side CRUD APIs
  */
 class MP2Node {
+	static map<string, pair<string, string>> syncMap;
 private:
 	// Vector holding the next two neighbors in the ring who have my replicas
 	vector<Node> hasMyReplicas;
@@ -89,7 +92,7 @@ public:
 
 	// server
 	bool createKeyValue(int transID, string key, string value, ReplicaType replica);
-	string readKey(string key);
+	string readKey(int transID, string key);
 	bool updateKeyValue(string key, string value, ReplicaType replica);
 	bool deletekey(int transID, string key);
 

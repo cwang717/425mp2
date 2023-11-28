@@ -7,6 +7,8 @@
  **********************************/
 #include "MP2Node.h"
 
+map<string, pair<string, string>> MP2Node::syncMap = {};
+
 /**
  * constructor
  */
@@ -53,14 +55,27 @@ void MP2Node::updateRing() {
 	 */
 	// Sort the list based on the hashCode
 	sort(curMemList.begin(), curMemList.end());
-	ring = curMemList;
 
 
 	/*
 	 * Step 3: Run the stabilization protocol IF REQUIRED
 	 */
 	// Run stabilization protocol if the hash table size is greater than zero and if there has been a changed in the ring
-	stabilizationProtocol();
+	bool changed = false;
+	if (ring.size() != curMemList.size()) {
+		changed = true;
+	} else {
+		for (unsigned i = 0; i < curMemList.size(); ++i) {
+			if (ring[i].getHashCode() != curMemList[i].getHashCode()) {
+				changed = true;
+				break;
+			}
+		}
+	}
+	ring = curMemList;
+	if ((!ht->isEmpty()) && changed) {
+		stabilizationProtocol();
+	}
 }
 
 /**
@@ -139,6 +154,15 @@ void MP2Node::clientRead(string key){
 	/*
 	* Implement this
 	*/
+	// find replicas
+	vector<Node> replicas = findNodes(key);
+	// send message to replicas
+	Message recmsg = Message(++g_transID, memberNode->addr, READ, key);
+	transMap.emplace(recmsg.transID, recmsg);
+	for (unsigned i = 0; i < replicas.size(); i++) {
+		Message msg = Message(g_transID, memberNode->addr, READ, key);
+		emulNet->ENsend(&memberNode->addr, replicas[i].getAddress(), msg.toString());
+	}
 }
 
 /**
@@ -212,11 +236,19 @@ bool MP2Node::createKeyValue(int transID, string key, string value, ReplicaType 
 *                 1) Read key from local hash table
 *                 2) Return value
 */
-string MP2Node::readKey(string key) {
+string MP2Node::readKey(int transID, string key) {
 	/*
 	 * Implement this
 	 */
 	// Read key from local hash table and return value
+	string res = ht->read(key);
+	if (!res.empty()) {
+		log->logReadSuccess(&memberNode->addr, false, transID, key, res);
+		return res;
+	} else {
+		log->logReadFail(&memberNode->addr, false, transID, key);
+		return res;
+	}
 }
 
 /**
@@ -274,6 +306,7 @@ void MP2Node::checkMessages() {
 	/*
 	* Declare your local variables here
 	*/
+	vector<string> readValues = {};
 
 	// dequeue all messages and handle them
 	while ( !memberNode->mp2q.empty() ) {
@@ -298,7 +331,12 @@ void MP2Node::checkMessages() {
 				break;
 			}
 			case READ:
+			{
+				string res = readKey(msg.transID, msg.key);
+				Message reply = Message(msg.transID, memberNode->addr, READREPLY, msg.key, res);
+				emulNet->ENsend(&memberNode->addr, &msg.fromAddr, reply.toString());
 				break;
+			}
 			case UPDATE:
 				break;
 			case DELETE:
@@ -320,7 +358,17 @@ void MP2Node::checkMessages() {
 				break;
 			}
 			case READREPLY:
+			{
+				if (msg.value.empty()) {
+					if (recRecord.find(msg.transID) == recRecord.end()) {
+						recRecord.emplace(msg.transID, 0);
+					}
+				} else {
+					recRecord[msg.transID]++;
+					readValues.emplace_back(msg.value);
+				}
 				break;
+			}
 		}
 	}
 
@@ -346,6 +394,27 @@ void MP2Node::checkMessages() {
 					log->logDeleteFail(&memberNode->addr, true, msg.transID, msg.key);
 				}
 				break;
+			}
+			case READ: {
+				if (item.second >= 2) {
+					bool allSame = true;
+					// static char stdstring[1000];
+					// sprintf(stdstring, readValues[0]);
+					// log->LOG(&memberNode->addr, stdstring);
+					// for (unsigned i = 1; i < readValues.size(); ++i) {
+					// 	if (readValues[i] != readValues[0]) {
+					// 		allSame = false;
+					// 		break;
+					// 	}
+					// }
+					if (allSame) {
+						log->logReadSuccess(&memberNode->addr, true, msg.transID, msg.key, readValues[0]);
+					} else {
+						log->logReadFail(&memberNode->addr, true, msg.transID, msg.key);
+					}
+				} else {
+					log->logReadFail(&memberNode->addr, true, msg.transID, msg.key);
+				}
 			}
 		}
 	}
@@ -423,4 +492,36 @@ void MP2Node::stabilizationProtocol() {
 	/*
 	* Implement this
 	*/
+	vector<string> toDelete;
+	for (auto & item : ht->hashTable) {
+		bool shouldDelete = true;
+		vector<Node> replicas = findNodes(item.first);
+		for (unsigned i = 0; i < replicas.size(); ++i) {
+			auto &replica = replicas[i];
+			if (replica.getAddress()->getAddress() == memberNode->addr.getAddress()) {
+				shouldDelete = false;
+			} else {
+				Entry entry(item.second);
+				entry.replica = ReplicaType(i);
+				syncMap.emplace(replica.getAddress()->getAddress(), make_pair(item.first, entry.convertToString()));
+			}
+		}
+		if (shouldDelete) {
+			toDelete.emplace_back(item.first);
+		}
+	}
+
+	for (auto & key : toDelete) {
+		ht->deleteKey(key);
+	}
+
+	for (auto iter = syncMap.begin(); iter != syncMap.end();) {
+		if (iter->first == memberNode->addr.getAddress()) {
+			ht->create(iter->second.first, iter->second.second);
+			iter = syncMap.erase(iter);
+		} else {
+			++iter;
+		}
+		
+	}
 }
