@@ -54,6 +54,8 @@ private:
 	string delimiter;
 	// Transaction map
 	map<int, Message>transMap;
+	// Record map
+	map<int, unsigned> recRecord;
 
 public:
 	MP2Node(Member *memberNode, Params *par, EmulNet *emulNet, Log *log, Address *addressOfMember);
@@ -86,7 +88,7 @@ public:
 	vector<Node> findNodes(string key);
 
 	// server
-	bool createKeyValue(string key, string value, ReplicaType replica);
+	bool createKeyValue(int transID, string key, string value, ReplicaType replica);
 	string readKey(string key);
 	bool updateKeyValue(string key, string value, ReplicaType replica);
 	bool deletekey(string key);

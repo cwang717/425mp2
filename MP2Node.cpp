@@ -53,12 +53,14 @@ void MP2Node::updateRing() {
 	 */
 	// Sort the list based on the hashCode
 	sort(curMemList.begin(), curMemList.end());
+	ring = curMemList;
 
 
 	/*
 	 * Step 3: Run the stabilization protocol IF REQUIRED
 	 */
 	// Run stabilization protocol if the hash table size is greater than zero and if there has been a changed in the ring
+	stabilizationProtocol();
 }
 
 /**
@@ -113,6 +115,15 @@ void MP2Node::clientCreate(string key, string value) {
 	/*
 	* Implement this
 	*/
+	// find replicas
+	vector<Node> replicas = findNodes(key);
+	// send message to replicas
+	Message recmsg = Message(++g_transID, memberNode->addr, CREATE, key, value);
+	transMap.emplace(recmsg.transID, recmsg);
+	for (unsigned i = 0; i < replicas.size(); i++) {
+		Message msg = Message(g_transID, memberNode->addr, CREATE, key, value, ReplicaType(i));
+		emulNet->ENsend(&memberNode->addr, replicas[i].getAddress(), msg.toString());
+	}
 }
 
 /**
@@ -168,11 +179,20 @@ void MP2Node::clientDelete(string key){
 *                    1) Inserts key value into the local hash table
 *                    2) Return true or false based on success or failure
 */
-bool MP2Node::createKeyValue(string key, string value, ReplicaType replica) {
+bool MP2Node::createKeyValue(int transID, string key, string value, ReplicaType replica) {
 	/*
 	 * Implement this
 	 */
 	// Insert key, value, replicaType into the hash table
+	Entry entry(value, par->getcurrtime(), replica);
+	if (ht->create(key, entry.convertToString())) {
+		log->logCreateSuccess(&memberNode->addr, false, transID, key, value);
+		return true;
+	} else {
+		log->logCreateFail(&memberNode->addr, false, transID, key, value);
+		return false;
+	}
+		
 }
 
 /**
@@ -249,16 +269,54 @@ void MP2Node::checkMessages() {
 		memberNode->mp2q.pop();
 
 		string message(data, data + size);
-
+		Message msg(message);
 		/*
 		 * Handle the message types here
 		 */
+		switch (msg.type) {
+			case CREATE: 
+			{
+				bool succ = createKeyValue(msg.transID, msg.key, msg.value, msg.replica);
+				Message reply = Message(msg.transID, memberNode->addr, REPLY, succ);
+				emulNet->ENsend(&memberNode->addr, &msg.fromAddr, reply.toString());
+				break;
+			}
+			case READ:
+				break;
+			case UPDATE:
+				break;
+			case DELETE:
+				break;
+			case REPLY:
+			{
+				if (msg.success) {
+					recRecord[msg.transID]++;
+				}
+				break;
+			}
+			case READREPLY:
+				break;
+		}
 	}
 
 	/*
 	* This function should also ensure all READ and UPDATE operation
 	* get QUORUM replies
 	*/
+	for (auto & item : recRecord) {
+		auto & msg = transMap.at(item.first);
+		if (item.second >= 2) {
+			switch (msg.type) {
+				case CREATE: {
+					log->logCreateSuccess(&memberNode->addr, true, msg.transID, msg.key, msg.value);
+					break;
+				}
+			}
+		}
+	}
+
+	recRecord.clear();
+			
 }
 
 /**
