@@ -35,7 +35,7 @@
  * 				4) Client side CRUD APIs
  */
 class MP2Node {
-	static map<string, pair<string, string>> syncMap;
+	static map<string, vector<pair<string, string>>> syncMap;
 private:
 	// Vector holding the next two neighbors in the ring who have my replicas
 	vector<Node> hasMyReplicas;
@@ -60,7 +60,7 @@ private:
 	// Record map
 	map<int, unsigned> recRecord;
 
-	int last_change = -22;
+	int last_change = -12;
 
 public:
 	MP2Node(Member *memberNode, Params *par, EmulNet *emulNet, Log *log, Address *addressOfMember);

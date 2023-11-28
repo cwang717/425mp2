@@ -7,7 +7,7 @@
  **********************************/
 #include "MP2Node.h"
 
-map<string, pair<string, string>> MP2Node::syncMap = {};
+map<string, vector<pair<string, string>>> MP2Node::syncMap = {};
 
 /**
  * constructor
@@ -73,18 +73,18 @@ void MP2Node::updateRing() {
 		}
 	}
 	ring = curMemList;
-	if ((!ht->isEmpty()) && changed) {
+	if (changed) {
 		last_change = par->getcurrtime();
 		return;
 	}
 
-	if (par->getcurrtime() - last_change == 20) {
+	if (par->getcurrtime() - last_change == 10) {
 		stabilizationProtocol();
 	}
 	
-	if (par->getcurrtime() - last_change == 21) {
+	if (par->getcurrtime() - last_change == 11) {
 		stabilizationProtocol();
-		last_change = -22;
+		last_change = -12;
 	}
 }
 
@@ -235,9 +235,10 @@ bool MP2Node::createKeyValue(int transID, string key, string value, ReplicaType 
 	/*
 	 * Implement this
 	 */
-	// Insert key, value, replicaType into the hash table
-	Entry entry(value, par->getcurrtime(), replica);
-	if (ht->create(key, entry.convertToString())) {
+	// // Insert key, value, replicaType into the hash table
+	// Entry entry(value, par->getcurrtime(), replica);
+	// if (ht->create(key, entry.convertToString())) {
+	if (ht->create(key, value)) {
 		log->logCreateSuccess(&memberNode->addr, false, transID, key, value);
 		return true;
 	} else {
@@ -541,9 +542,11 @@ void MP2Node::stabilizationProtocol() {
 			if (replica.getAddress()->getAddress() == memberNode->addr.getAddress()) {
 				shouldDelete = false;
 			} else {
-				Entry entry(item.second);
-				entry.replica = ReplicaType(i);
-				syncMap.emplace(replica.getAddress()->getAddress(), make_pair(item.first, entry.convertToString()));
+				if (syncMap.find(replica.getAddress()->getAddress()) == syncMap.end()) {
+					syncMap[replica.getAddress()->getAddress()] = {make_pair(item.first, item.second)};
+				} else {
+					syncMap[replica.getAddress()->getAddress()].emplace_back(make_pair(item.first, item.second));
+				}
 			}
 		}
 		if (shouldDelete) {
@@ -557,7 +560,9 @@ void MP2Node::stabilizationProtocol() {
 
 	for (auto iter = syncMap.begin(); iter != syncMap.end();) {
 		if (iter->first == memberNode->addr.getAddress()) {
-			ht->create(iter->second.first, iter->second.second);
+			for (auto & item : iter->second) {
+				ht->create(item.first, item.second);
+			}
 			iter = syncMap.erase(iter);
 		} else {
 			++iter;
