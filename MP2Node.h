@@ -60,6 +60,8 @@ private:
 	// Record map
 	map<int, unsigned> recRecord;
 
+	int last_change = -22;
+
 public:
 	MP2Node(Member *memberNode, Params *par, EmulNet *emulNet, Log *log, Address *addressOfMember);
 	Member * getMemberNode() {
@@ -93,7 +95,7 @@ public:
 	// server
 	bool createKeyValue(int transID, string key, string value, ReplicaType replica);
 	string readKey(int transID, string key);
-	bool updateKeyValue(string key, string value, ReplicaType replica);
+	bool updateKeyValue(int transID, string key, string value, ReplicaType replica);
 	bool deletekey(int transID, string key);
 
 	// stabilization protocol - handle multiple failures

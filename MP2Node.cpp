@@ -74,7 +74,17 @@ void MP2Node::updateRing() {
 	}
 	ring = curMemList;
 	if ((!ht->isEmpty()) && changed) {
+		last_change = par->getcurrtime();
+		return;
+	}
+
+	if (par->getcurrtime() - last_change == 20) {
 		stabilizationProtocol();
+	}
+	
+	if (par->getcurrtime() - last_change == 21) {
+		stabilizationProtocol();
+		last_change = -22;
 	}
 }
 
@@ -178,6 +188,15 @@ void MP2Node::clientUpdate(string key, string value){
 	/*
     * Implement this
     */
+   	// find replicas
+	vector<Node> replicas = findNodes(key);
+	// send message to replicas
+	Message recmsg = Message(++g_transID, memberNode->addr, UPDATE, key, value);
+	transMap.emplace(recmsg.transID, recmsg);
+	for (unsigned i = 0; i < replicas.size(); i++) {
+		Message msg = Message(g_transID, memberNode->addr, UPDATE, key, value);
+		emulNet->ENsend(&memberNode->addr, replicas[i].getAddress(), msg.toString());
+	}
 }
 
 /**
@@ -259,11 +278,18 @@ string MP2Node::readKey(int transID, string key) {
 *                 1) Update the key to the new value in the local hash table
 *                 2) Return true or false based on success or failure
 */
-bool MP2Node::updateKeyValue(string key, string value, ReplicaType replica) {
+bool MP2Node::updateKeyValue(int transID, string key, string value, ReplicaType replica) {
 	/*
 	 * Implement this
 	 */
 	// Update key in local hash table and return true or false
+	if (ht->update(key, value)) {
+		log->logUpdateSuccess(&memberNode->addr, false, transID, key, value);
+		return true;
+	} else {
+		log->logUpdateFail(&memberNode->addr, false, transID, key, value);
+		return false;
+	}
 }
 
 /**
@@ -338,7 +364,12 @@ void MP2Node::checkMessages() {
 				break;
 			}
 			case UPDATE:
+			{
+				bool succ = updateKeyValue(msg.transID, msg.key, msg.value, msg.replica);
+				Message reply = Message(msg.transID, memberNode->addr, REPLY, succ);
+				emulNet->ENsend(&memberNode->addr, &msg.fromAddr, reply.toString());
 				break;
+			}
 			case DELETE:
 			{
 				bool succ = deletekey(msg.transID, msg.key);
@@ -384,6 +415,15 @@ void MP2Node::checkMessages() {
 					log->logCreateSuccess(&memberNode->addr, true, msg.transID, msg.key, msg.value);
 				} else {
 					log->logCreateFail(&memberNode->addr, true, msg.transID, msg.key, msg.value);
+				}
+				break;
+			}
+			case UPDATE:
+			{
+				if (item.second >= 2) {
+					log->logUpdateSuccess(&memberNode->addr, true, msg.transID, msg.key, msg.value);
+				} else {
+					log->logUpdateFail(&memberNode->addr, true, msg.transID, msg.key, msg.value);
 				}
 				break;
 			}
