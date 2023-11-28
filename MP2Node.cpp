@@ -169,6 +169,15 @@ void MP2Node::clientDelete(string key){
 	/*
 	* Implement this
 	*/
+	// find replicas
+	vector<Node> replicas = findNodes(key);
+	// send message to replicas
+	Message recmsg = Message(++g_transID, memberNode->addr, DELETE, key);
+	transMap.emplace(recmsg.transID, recmsg);
+	for (unsigned i = 0; i < replicas.size(); i++) {
+		Message msg = Message(g_transID, memberNode->addr, DELETE, key);
+		emulNet->ENsend(&memberNode->addr, replicas[i].getAddress(), msg.toString());
+	}
 }
 
 /**
@@ -233,11 +242,18 @@ bool MP2Node::updateKeyValue(string key, string value, ReplicaType replica) {
 *                 1) Delete the key from the local hash table
 *                 2) Return true or false based on success or failure
 */
-bool MP2Node::deletekey(string key) {
+bool MP2Node::deletekey(int transID, string key) {
 	/*
 	 * Implement this
 	 */
 	// Delete the key from the local hash table
+	if (ht->deleteKey(key)) {
+		log->logDeleteSuccess(&memberNode->addr, false, transID, key);
+		return true;
+	} else {
+		log->logDeleteFail(&memberNode->addr, false, transID, key);
+		return false;
+	}
 }
 
 /**
@@ -286,11 +302,20 @@ void MP2Node::checkMessages() {
 			case UPDATE:
 				break;
 			case DELETE:
+			{
+				bool succ = deletekey(msg.transID, msg.key);
+				Message reply = Message(msg.transID, memberNode->addr, REPLY, succ);
+				emulNet->ENsend(&memberNode->addr, &msg.fromAddr, reply.toString());
 				break;
+			}
 			case REPLY:
 			{
 				if (msg.success) {
 					recRecord[msg.transID]++;
+				} else {
+					if (recRecord.find(msg.transID) == recRecord.end()) {
+						recRecord.emplace(msg.transID, 0);
+					}
 				}
 				break;
 			}
@@ -305,12 +330,22 @@ void MP2Node::checkMessages() {
 	*/
 	for (auto & item : recRecord) {
 		auto & msg = transMap.at(item.first);
-		if (item.second >= 2) {
-			switch (msg.type) {
-				case CREATE: {
+		switch (msg.type) {
+			case CREATE: {
+				if (item.second >= 2) {
 					log->logCreateSuccess(&memberNode->addr, true, msg.transID, msg.key, msg.value);
-					break;
+				} else {
+					log->logCreateFail(&memberNode->addr, true, msg.transID, msg.key, msg.value);
 				}
+				break;
+			}
+			case DELETE: {
+				if (item.second >= 2) {
+					log->logDeleteSuccess(&memberNode->addr, true, msg.transID, msg.key);
+				} else {
+					log->logDeleteFail(&memberNode->addr, true, msg.transID, msg.key);
+				}
+				break;
 			}
 		}
 	}

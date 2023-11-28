@@ -265,78 +265,78 @@ echo "TEST 1 SCORE..................: ${CREATE_TEST_SCORE} / 3"
 # Add to grade
 GRADE=$(( ${GRADE} + ${CREATE_TEST_SCORE} ))
 
-# #echo ""
-# #echo "############################"
-# #echo " CREATE TEST ENDS"
-# #echo "############################"
-# #echo ""
+#echo ""
+#echo "############################"
+#echo " CREATE TEST ENDS"
+#echo "############################"
+#echo ""
 
-# echo ""
-# echo "############################"
-# echo " DELETE TEST"
-# echo "############################"
-# echo ""
+echo ""
+echo "############################"
+echo " DELETE TEST"
+echo "############################"
+echo ""
 
-# DELETE_TEST1_STATUS="${SUCCESS}"
-# DELETE_TEST2_STATUS="${SUCCESS}"
-# DELETE_TEST1_SCORE=0
-# DELETE_TEST2_SCORE=0
+DELETE_TEST1_STATUS="${SUCCESS}"
+DELETE_TEST2_STATUS="${SUCCESS}"
+DELETE_TEST1_SCORE=0
+DELETE_TEST2_SCORE=0
 
-# build_and_run "./testcases/delete.conf"
+build_and_run "./testcases/delete.conf"
 
-# if [ $TEST_CRASHED -eq 0 ]; then
-#     echo "TEST 1: Delete 3 replicas of every key"
+if [ $TEST_CRASHED -eq 0 ]; then
+    echo "TEST 1: Delete 3 replicas of every key"
 
-#     delete_count=`grep -i "${DELETE_OPERATION}" dbg.log | wc -l`
-#     valid_delete_count=$(( ${delete_count} - 1 ))
-#     expected_count=$(( ${valid_delete_count} * ${RFPLUSONE} ))
-#     delete_success_count=`grep -i "${DELETE_SUCCESS}" dbg.log | wc -l`
+    delete_count=`grep -i "${DELETE_OPERATION}" dbg.log | wc -l`
+    valid_delete_count=$(( ${delete_count} - 1 ))
+    expected_count=$(( ${valid_delete_count} * ${RFPLUSONE} ))
+    delete_success_count=`grep -i "${DELETE_SUCCESS}" dbg.log | wc -l`
 
-#     if [ "${delete_success_count}" -ne "${expected_count}" ]
-#     then
-#         DELETE_TEST1_STATUS="${FAILURE}"
-#     else
-#         keys=""
-#         keys=`grep -i "${DELETE_OPERATION}" dbg.log | cut -d" " -f7`
-#         for key in ${keys}
-#         do
-#             if [ $key != "${INVALID_KEY}" ]
-#             then
-#                 key_delete_success_count=`grep -i "${DELETE_SUCCESS}" dbg.log | grep "${key}" | wc -l`
-#                 if [ "${key_delete_success_count}" -ne "${RFPLUSONE}" ]
-#                 then
-#                     DELETE_TEST1_STATUS="${FAILURE}"
-#                     break
-#                 fi
-#             fi
-#         done
-#     fi
+    if [ "${delete_success_count}" -ne "${expected_count}" ]
+    then
+        DELETE_TEST1_STATUS="${FAILURE}"
+    else
+        keys=""
+        keys=`grep -i "${DELETE_OPERATION}" dbg.log | cut -d" " -f7`
+        for key in ${keys}
+        do
+            if [ $key != "${INVALID_KEY}" ]
+            then
+                key_delete_success_count=`grep -i "${DELETE_SUCCESS}" dbg.log | grep "${key}" | wc -l`
+                if [ "${key_delete_success_count}" -ne "${RFPLUSONE}" ]
+                then
+                    DELETE_TEST1_STATUS="${FAILURE}"
+                    break
+                fi
+            fi
+        done
+    fi
 
-#     echo "TEST 2: Attempt delete of an invalid key"
+    echo "TEST 2: Attempt delete of an invalid key"
 
-#     delete_fail_count=`grep -i "${DELETE_FAILURE}" dbg.log | grep "${INVALID_KEY}" | wc -l`
-#     if [ "${delete_fail_count}" -ne 4 ]
-#     then
-#         DELETE_TEST2_STATUS="${FAILURE}"
-#     fi
+    delete_fail_count=`grep -i "${DELETE_FAILURE}" dbg.log | grep "${INVALID_KEY}" | wc -l`
+    if [ "${delete_fail_count}" -ne 4 ]
+    then
+        DELETE_TEST2_STATUS="${FAILURE}"
+    fi
 
-#     if [ "${DELETE_TEST1_STATUS}" -eq "${SUCCESS}" ]
-#     then
-#         DELETE_TEST1_SCORE=3
-#     fi
+    if [ "${DELETE_TEST1_STATUS}" -eq "${SUCCESS}" ]
+    then
+        DELETE_TEST1_SCORE=3
+    fi
 
-#     if [ "${DELETE_TEST2_STATUS}" -eq "${SUCCESS}" ]
-#     then
-#         DELETE_TEST2_SCORE=4
-#     fi
-# fi
+    if [ "${DELETE_TEST2_STATUS}" -eq "${SUCCESS}" ]
+    then
+        DELETE_TEST2_SCORE=4
+    fi
+fi
 
-# # Display score
-# echo "TEST 1 SCORE..................: ${DELETE_TEST1_SCORE} / 3"
-# echo "TEST 2 SCORE..................: ${DELETE_TEST2_SCORE} / 4"
-# # Add to grade
-# GRADE=$(( ${GRADE} + ${DELETE_TEST1_SCORE} ))
-# GRADE=$(( ${GRADE} + ${DELETE_TEST2_SCORE} ))
+# Display score
+echo "TEST 1 SCORE..................: ${DELETE_TEST1_SCORE} / 3"
+echo "TEST 2 SCORE..................: ${DELETE_TEST2_SCORE} / 4"
+# Add to grade
+GRADE=$(( ${GRADE} + ${DELETE_TEST1_SCORE} ))
+GRADE=$(( ${GRADE} + ${DELETE_TEST2_SCORE} ))
 
 # #echo ""
 # #echo "############################"

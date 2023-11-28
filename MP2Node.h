@@ -91,7 +91,7 @@ public:
 	bool createKeyValue(int transID, string key, string value, ReplicaType replica);
 	string readKey(string key);
 	bool updateKeyValue(string key, string value, ReplicaType replica);
-	bool deletekey(string key);
+	bool deletekey(int transID, string key);
 
 	// stabilization protocol - handle multiple failures
 	void stabilizationProtocol();
